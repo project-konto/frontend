@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 const navigationItems = [
     { href: '/budget', label: 'Budget' },
     { href: '/transactions', label: 'Transactions' },
-    { href: 'settings', label: 'Settings' },
+    { href: '/settings', label: 'Settings' },
 ]
 
 export function NavigationBar() {
