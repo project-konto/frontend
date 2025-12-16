@@ -1,19 +1,31 @@
 ﻿import axios from "axios";
+import { authStorage } from "@/lib/authStorage";
 
-export const apiClient = axios.create({
+const apiClient = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL,
-    withCredentials: true,
-})
+});
 
 apiClient.interceptors.request.use((config) => {
+    const token = authStorage.getToken();
+    if (token) {
+        config.headers = config.headers ?? {};
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+
     return config;
-})
+});
 
 apiClient.interceptors.response.use(
-    (response) => response,
+    (result) => result,
     (error) => {
-        if (error.response?.status === 401) {}
-        
+        const status = error?.response?.status;
+        if (status === 401 && typeof window !== "undefined") {
+            authStorage.clearAll();
+            window.location.href = "/login";
+        }
+
         return Promise.reject(error);
     }
-)
+);
+
+export default apiClient;
