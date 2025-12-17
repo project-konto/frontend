@@ -7,7 +7,7 @@ export const authStorage = {
     getToken(): string | null {
         if (typeof window === "undefined")
             return null;
-        return localStorage.getItem(USER_KEY);
+        return localStorage.getItem(TOKEN_KEY);
     },
 
     setToken(token: string) {
