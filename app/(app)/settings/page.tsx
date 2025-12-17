@@ -8,13 +8,13 @@ import { getErrorMessage } from "@/lib/getErrorMessage";
 export default function SettingsPage() {
     const stored = authStorage.getUser();
     const userId = stored?.userId;
-
     const [user, setUser] = useState<UserDto | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         let alive = true;
-        if (!userId) return;
+        if (!userId)
+            return;
 
         (async () => {
             try {

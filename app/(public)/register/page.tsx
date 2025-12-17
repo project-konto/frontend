@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api/auth";
 import {getErrorMessage} from "@/lib/getErrorMessage";
+import { authStorage } from "@/lib/authStorage";
 
 export default function RegisterPage() {
     const router = useRouter();
@@ -21,7 +22,11 @@ export default function RegisterPage() {
 
         try {
             await authApi.register({ name, email, password });
-            router.replace("/login");
+
+            const loginResponse = await authApi.login({ email, password });
+            authStorage.setToken(loginResponse.token);
+            authStorage.setUser({ userId: loginResponse.userId, name: loginResponse.name, email: loginResponse.email });
+            router.replace("/budget");
         }
 
         catch (e: unknown) {

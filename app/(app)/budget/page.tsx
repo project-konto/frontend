@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { accountApi } from "@/lib/api/account";
 import { budgetApi, BudgetDetailsDto } from "@/lib/api/budget";
-import {getErrorMessage} from "@/lib/getErrorMessage";
+import { getErrorMessage } from "@/lib/getErrorMessage";
+import ImportTransactionsSheet from "@/components/importTransactionsSheet";
 
 export default function BudgetPage() {
     const [overviewLoading, setOverviewLoading] = useState(true);
@@ -13,17 +14,25 @@ export default function BudgetPage() {
     const [activeBudgetId, setActiveBudgetId] = useState<string | null>(null);
     const [details, setDetails] = useState<BudgetDetailsDto | null>(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
-    const active = useMemo(() => budgets.find(b => b.budgetId === activeBudgetId), [budgets, activeBudgetId]);
+    const [isImportOpen, setImportOpen] = useState(false);
+    const active = useMemo(
+        () => budgets.find((b) => b.budgetId === activeBudgetId),
+        [budgets, activeBudgetId]
+    );
+    const hasNoData = (details?.transactions?.length ?? 0) === 0;
 
     async function loadOverview() {
         setOverviewLoading(true);
         setOverviewErr(null);
 
         try {
-            const ov = await accountApi.overview();
-            setAccountId(ov.accountId);
-            setBudgets(ov.budgets ?? []);
-            if (!activeBudgetId && ov.budgets?.length) setActiveBudgetId(ov.budgets[0].budgetId);
+            const overview = await accountApi.overview();
+            setAccountId(overview.accountId);
+            setBudgets(overview.budgets ?? []);
+
+            if (!activeBudgetId && overview.budgets?.length)
+                setActiveBudgetId(overview.budgets[0].budgetId);
+
         }
 
         catch (e: unknown) {
@@ -37,10 +46,14 @@ export default function BudgetPage() {
 
     async function loadDetails(id: string) {
         setDetailsLoading(true);
-
         try {
-            const d = await budgetApi.details(id);
-            setDetails(d);
+            const details = await budgetApi.details(id);
+            setDetails(details);
+        }
+
+        catch (e: unknown) {
+            console.error(getErrorMessage(e, "Failed to load budget details"));
+            setDetails(null);
         }
 
         finally {
@@ -48,16 +61,19 @@ export default function BudgetPage() {
         }
     }
 
-    useEffect(() => { loadOverview(); }, []);
     useEffect(() => {
-        if (activeBudgetId)
-            loadDetails(activeBudgetId);
+        void loadOverview();
+    }, []);
+
+    useEffect(() => {
+        if (!activeBudgetId) return;
+        void loadDetails(activeBudgetId);
     }, [activeBudgetId]);
 
     async function createBudget() {
-        const res = await budgetApi.create();
+        const response = await budgetApi.create();
         await loadOverview();
-        setActiveBudgetId(res.budgetId);
+        setActiveBudgetId(response.budgetId);
     }
 
     async function renameBudget() {
@@ -76,6 +92,7 @@ export default function BudgetPage() {
     async function deleteBudget() {
         if (!activeBudgetId)
             return;
+
         if (!confirm("Delete this budget?"))
             return;
 
@@ -86,23 +103,34 @@ export default function BudgetPage() {
     }
 
     async function createAccountIfMissing() {
-        const res = await accountApi.create();
-        setAccountId(res.accountId);
+        const response = await accountApi.create();
+        setAccountId(response.accountId);
         await loadOverview();
     }
 
     return (
-        <div style={{ height: "100%", padding: 16, display: "grid", gridTemplateRows: "auto 1fr", gap: 12 }}>
+        <div
+            style={{
+                height: "100%",
+                padding: 16,
+                display: "grid",
+                gridTemplateRows: "auto 1fr",
+                gap: 12,
+                position: "relative",
+            }}
+        >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div style={{ fontWeight: 900, opacity: 0.92 }}>Budgets</div>
-                <button style={smallButton} onClick={createBudget}>+ Create</button>
+                <button style={btnSmall} onClick={createBudget}>
+                    + Create
+                </button>
             </div>
             {overviewLoading && <div style={muted}>Loading...</div>}
             {overviewErr && (
                 <div style={{ display: "grid", gap: 10 }}>
                     <div style={{ color: "rgba(255,180,180,0.95)" }}>{overviewErr}</div>
-                    <button style={button} onClick={createAccountIfMissing}>
-                        Create account (if you don’t have one yet)
+                    <button style={btn} onClick={createAccountIfMissing}>
+                        Create account
                     </button>
                 </div>
             )}
@@ -115,7 +143,10 @@ export default function BudgetPage() {
                                 onClick={() => setActiveBudgetId(b.budgetId)}
                                 style={{
                                     ...chip,
-                                    background: b.budgetId === activeBudgetId ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.08)",
+                                    background:
+                                        b.budgetId === activeBudgetId
+                                            ? "rgba(255,255,255,0.18)"
+                                            : "rgba(255,255,255,0.08)",
                                 }}
                             >
                                 <div style={{ fontWeight: 800, fontSize: 13 }}>{b.name}</div>
@@ -130,8 +161,10 @@ export default function BudgetPage() {
                                 <div style={{ fontSize: 12, opacity: 0.7 }}>Account: {accountId ?? "-"}</div>
                             </div>
                             <div style={{ display: "flex", gap: 8 }}>
-                                <button style={smallButton} onClick={renameBudget}>Rename</button>
-                                <button style={{ ...smallButton, background: "rgba(255,120,120,0.16)" }} onClick={deleteBudget}>
+                                <button style={btnSmall} onClick={renameBudget}>
+                                    Rename
+                                </button>
+                                <button style={{ ...btnSmall, background: "rgba(255,120,120,0.16)" }} onClick={deleteBudget}>
                                     Delete
                                 </button>
                             </div>
@@ -139,25 +172,62 @@ export default function BudgetPage() {
                         <div style={{ marginTop: 12, fontWeight: 800, opacity: 0.9 }}>Transactions</div>
                         {detailsLoading && <div style={muted}>Loading transactions...</div>}
                         {!detailsLoading && (
-                            <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                                {(details?.transactions ?? []).map((t) => (
-                                    <div key={t.transactionId} style={row}>
-                                        <div style={{ fontWeight: 800 }}>{t.amount}</div>
-                                        <div style={{ fontSize: 12, opacity: 0.75, textAlign: "right" }}>
-                                            {t.description ?? "—"} <br />
-                                            {new Date(t.createdAt).toLocaleString()}
+                            <>
+                                {hasNoData ? (
+                                    <div style={{ height: 320, display: "grid", placeItems: "center" }}>
+                                        <div style={{ textAlign: "center" }}>
+                                            <div style={{ fontWeight: 900, opacity: 0.85, fontSize: 18 }}>No data</div>
+                                            <div style={{ marginTop: 10 }}>
+                                                <button
+                                                    style={btn}
+                                                    onClick={() => {
+                                                        // если бюджета нет, импортировать некуда
+                                                        if (!activeBudgetId) return;
+                                                        setImportOpen(true);
+                                                    }}
+                                                    disabled={!activeBudgetId}
+                                                >
+                                                    Add Transaction
+                                                </button>
+                                            </div>
+                                            {!activeBudgetId && (
+                                                <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
+                                                    Create a budget first
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                ))}
-                                {!details?.transactions?.length && <div style={muted}>No transactions yet.</div>}
-                            </div>
+                                ) : (
+                                    <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                                        {(details?.transactions ?? []).map((t) => (
+                                            <div key={t.transactionId} style={row}>
+                                                <div style={{ fontWeight: 800 }}>{t.amount}</div>
+                                                <div style={{ fontSize: 12, opacity: 0.75, textAlign: "right" }}>
+                                                    {t.description ?? "—"}
+                                                    <br />
+                                                    {new Date(t.createdAt).toLocaleString()}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
             )}
+            <ImportTransactionsSheet
+                open={isImportOpen}
+                onClose={() => setImportOpen(false)}
+                budgetId={activeBudgetId}
+                onImported={() => {
+                    if (activeBudgetId)
+                        void loadDetails(activeBudgetId);
+                }}
+            />
         </div>
     );
-}
+};
 
 const card: React.CSSProperties = {
     minHeight: 0,
@@ -187,16 +257,17 @@ const chip: React.CSSProperties = {
     cursor: "pointer",
 };
 
-const button: React.CSSProperties = {
-    padding: "12px 12px",
+const btn: React.CSSProperties = {
+    padding: "12px 14px",
     borderRadius: 12,
     background: "rgba(255,255,255,0.9)",
     color: "#163a4a",
     fontWeight: 900,
     border: "none",
+    cursor: "pointer",
 };
 
-const smallButton: React.CSSProperties = {
+const btnSmall: React.CSSProperties = {
     padding: "8px 10px",
     borderRadius: 10,
     background: "rgba(255,255,255,0.12)",

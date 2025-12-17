@@ -1,0 +1,328 @@
+﻿"use client"
+
+import { useMemo, useRef, useState } from "react";
+import apiClient from "@/lib/apiClient";
+import { getErrorMessage } from "@/lib/getErrorMessage";
+
+type Props = {
+    open: boolean;
+    onClose: () => void;
+    budgetId: string | null;
+    onImported?: () => void;
+};
+type Stage = "pick" | "ready" | "uploading" | "done";
+
+export default function ImportTransactionsSheet({ open, onClose, budgetId, onImported }: Props) {
+    const inputRef = useRef<HTMLInputElement | null>(null);
+    const [stage, setStage] = useState<Stage>("pick");
+    const [file, setFile] = useState<File | null>(null);
+    const [progress, setProgress] = useState(0);
+    const [etaSec, setEtaSec] = useState<number | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    const fileSizeLabel = useMemo(() => {
+        if (!file)
+            return "";
+
+        const kilobyte = Math.round(file.size / 1024);
+        return kilobyte >= 1024 ? `${(kilobyte / 1024).toFixed(1)}MB` : `${kilobyte}KB`;
+    }, [file]);
+
+    if (!open)
+        return null;
+
+    function reset() {
+        setStage("pick");
+        setFile(null);
+        setProgress(0);
+        setEtaSec(null);
+        setError(null);
+
+        if (inputRef.current)
+            inputRef.current.value = "";
+    };
+
+    function close() {
+        reset();
+        onClose();
+    }
+
+    function pickFile() {
+        inputRef.current?.click();
+    }
+
+    function onFileSelected(file: File | null) {
+        setError(null);
+        setFile(file);
+        setStage(file ? "ready" : "pick");
+    }
+
+    async function upload() {
+        if (!budgetId) {
+            setError("No budget selected");
+            return;
+        }
+
+        if (!file) {
+            setError("Choose a file first");
+            return;
+        }
+
+        setError(null);
+        setStage("uploading");
+        setProgress(0);
+        setEtaSec(null);
+
+        const form = new FormData();
+        form.append("budgetId", budgetId);
+        form.append("file", file);
+
+        const startedAt = performance.now();
+        let lastLoaded = 0;
+        let lastTime = startedAt;
+
+        try {
+            await apiClient.post("api/transactions/import", form, {
+                headers: { "Content-Type": "multipart/form-data" },
+                onUploadProgress: (e) => {
+                    const total = e.total ?? file.size;
+                    const loaded = e.loaded ?? 0;
+                    const pct = total > 0 ? (loaded / total) * 100 : 0;
+                    setProgress(Math.max(0, Math.min(100, Math.round(pct))));
+
+                    const now = performance.now();
+                    const dt = (now - lastTime) / 1000;
+
+                    if (dt >= 0.25) {
+                        const dLoaded = loaded - lastLoaded;
+                        const speed = dLoaded / dt; // bytes/sec
+
+                        if (speed > 0) {
+                            const remaining = Math.max(0, total - loaded);
+                            setEtaSec(Math.ceil(remaining / speed));
+                        }
+
+                        lastLoaded = loaded;
+                        lastTime = now;
+                    }
+                }
+            });
+
+            setStage("done");
+            setProgress(100);
+            setEtaSec(0);
+            onImported?.();
+        }
+
+        catch (error: unknown) {
+            setError(getErrorMessage(error, "Upload failed"));
+            setStage("ready");
+        }
+    }
+
+    return (
+        <div style={overlay} onMouseDown={close}>
+            <div style={sheet} onMouseDown={(e) => e.stopPropagation()}>
+                <div style={header}>
+                    <div>
+                        <div style={{ fontWeight: 900, fontSize: 18 }}>Add Transaction</div>
+                        <div style={{ opacity: 0.7, fontSize: 12 }}>We support .csv and .pdf</div>
+                    </div>
+                    <button style={iconBtn} onClick={close}>×</button>
+                </div>
+                <div style={body}>
+                    {stage === "pick" && (
+                        <div style={center}>
+                            <div style={{ fontSize: 28, opacity: 0.85 }}>⤴</div>
+                            <div style={{ marginTop: 10, fontWeight: 800 }}>Choose File to Upload</div>
+                            <div style={{ marginTop: 4, fontSize: 12, opacity: 0.65 }}>.CSV or .PDF</div>
+                        </div>
+                    )}
+                    {(stage === "ready" || stage === "uploading" || stage === "done") && file && (
+                        <div style={fileCard}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                <div style={fileIcon}>📄</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 800, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                        {file.name}
+                                    </div>
+                                    <div style={{ fontSize: 12, opacity: 0.65 }}>{fileSizeLabel}</div>
+                                    {stage === "uploading" && (
+                                        <>
+                                            <div style={barWrap}>
+                                                <div style={{ ...barFill, width: `${progress}%` }} />
+                                            </div>
+                                            <div style={{ fontSize: 12, opacity: 0.65 }}>
+                                                {etaSec !== null ? `${etaSec}s left` : "Uploading..."}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                                {stage !== "uploading" && (
+                                    <button
+                                        title="Remove"
+                                        style={trashBtn}
+                                        onClick={() => onFileSelected(null)}
+                                    >
+                                        🗑
+                                    </button>
+                                )}
+                            </div>
+                            {stage === "done" && (
+                                <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
+                                    Uploaded successfully
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    {error && <div style={errorText}>{error}</div>}
+                </div>
+                <div style={footer}>
+                    <button style={linkBtn} onClick={() => alert("Help can be added later")}>Get Help</button>
+                    <div style={{ display: "flex", gap: 10 }}>
+                        <button style={btnGhost} onClick={close}>Cancel</button>
+                        <button
+                            style={btnPrimary}
+                            onClick={stage === "pick" ? pickFile : upload}
+                            disabled={stage === "uploading"}
+                        >
+                            {stage === "pick" ? "Choose file" : stage === "uploading" ? "Uploading..." : "Upload"}
+                        </button>
+                    </div>
+                </div>
+                <input
+                    ref={inputRef}
+                    type="file"
+                    accept=".csv,.pdf"
+                    style={{ display: "none" }}
+                    onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
+                />
+            </div>
+        </div>
+    );
+}
+
+const overlay: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    background: "rgba(0,0,0,0.35)",
+    display: "grid",
+    alignItems: "end",
+};
+
+const sheet: React.CSSProperties = {
+    background: "rgba(255,255,255,0.92)",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 16,
+    minHeight: 420,
+};
+
+const header: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "start",
+    gap: 12,
+};
+
+const iconBtn: React.CSSProperties = {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    border: "none",
+    background: "rgba(0,0,0,0.06)",
+    cursor: "pointer",
+    fontSize: 18,
+};
+
+const body: React.CSSProperties = {
+    marginTop: 14,
+    minHeight: 250,
+    display: "grid",
+    alignContent: "center",
+};
+
+const center: React.CSSProperties = {
+    textAlign: "center",
+    color: "rgba(0,0,0,0.72)",
+};
+
+const fileCard: React.CSSProperties = {
+    background: "rgba(0,0,0,0.04)",
+    borderRadius: 16,
+    padding: 12,
+};
+
+const fileIcon: React.CSSProperties = {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    background: "rgba(0,0,0,0.06)",
+    display: "grid",
+    placeItems: "center",
+    fontSize: 18,
+};
+
+const trashBtn: React.CSSProperties = {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    border: "none",
+    background: "rgba(0,0,0,0.06)",
+    cursor: "pointer",
+};
+
+const barWrap: React.CSSProperties = {
+    marginTop: 8,
+    height: 8,
+    borderRadius: 999,
+    background: "rgba(0,0,0,0.10)",
+    overflow: "hidden",
+};
+
+const barFill: React.CSSProperties = {
+    height: "100%",
+    borderRadius: 999,
+    background: "rgba(22,58,74,0.65)",
+};
+
+const footer: React.CSSProperties = {
+    marginTop: 14,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 10,
+};
+
+const linkBtn: React.CSSProperties = {
+    border: "none",
+    background: "transparent",
+    color: "rgba(0,0,0,0.55)",
+    cursor: "pointer",
+    fontWeight: 700,
+};
+
+const btnGhost: React.CSSProperties = {
+    padding: "10px 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.15)",
+    background: "transparent",
+    cursor: "pointer",
+    fontWeight: 800,
+};
+
+const btnPrimary: React.CSSProperties = {
+    padding: "10px 14px",
+    borderRadius: 12,
+    border: "none",
+    background: "rgba(22,58,74,0.80)",
+    color: "white",
+    cursor: "pointer",
+    fontWeight: 900
+};
+
+const errorText: React.CSSProperties = {
+    marginTop: 10,
+    fontSize: 12,
+    color: "rgba(160,0,0,0.75)"
+};
