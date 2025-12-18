@@ -2,34 +2,27 @@
 
 export type CreateBudgetResponse = { budgetId: string };
 export type BudgetDetailsDto = {
-    budgetId: string;
+    id: string;
     name: string;
-    balance: number;
+    currentBalance: number;
+    currency: string;
     transactions: {
-        transactionId: string;
+        id: string;
         amount: number;
-        createdAt: string;
-        description?: string | null;
-        categoryId?: string | null;
+        currency: string;
+        type: "Income" | "Expense";
+        categoryName: string;
+        date: string;
+        description: string;
     }[];
 };
 
 export const budgetApi = {
-    create() {
-        return apiClient.post<CreateBudgetResponse>('api/budget/create').then((r) => r.data);
+    create(payload: { accountId: string; name: string; initialBalance: number; currency: string }) {
+        return apiClient.post<CreateBudgetResponse>("/api/budgets", payload).then((r) => r.data);
     },
 
     details(id: string) {
-        return apiClient.get<BudgetDetailsDto>(`/api/budget/${id}`).then((r) => r.data);
+        return apiClient.get<BudgetDetailsDto>(`/api/budgets/${id}`).then((r) => r.data);
     },
-
-    rename(id: string, newName: string) {
-        return apiClient.put(`api/budget/${id}/rename`, newName, {
-            headers: { 'Content-Type': 'application/json' },
-        }).then((r) => r.data);
-    },
-
-    delete(id: string) {
-        return apiClient.delete(`api/budget/${id}`).then((r) => r.data);
-    }
 };

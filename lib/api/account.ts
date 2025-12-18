@@ -7,15 +7,15 @@ export type AccountOverviewDto = {
 }
 
 export const accountApi = {
-    create() {
-        return apiClient.post<CreateAccountResponse>("/api/account").then((r) => r.data);
+    create(name: string) {
+        return apiClient.post<CreateAccountResponse>("/api/account", { name }).then((r) => r.data);
     },
 
     overview() {
-        return apiClient.post<AccountOverviewDto>("/api/account").then((r) => r.data);
+        return apiClient.get<AccountOverviewDto>("/api/account").then((r) => r.data);
     },
 
-    delete(id: string) {
-        return apiClient.delete(`/api/account/${id}`).then((r) => r.data);
+    delete() {
+        return apiClient.delete(`/api/account`).then((r) => r.data);
     }
 };

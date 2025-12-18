@@ -18,6 +18,13 @@ export default function RegisterPage() {
     async function onSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError(null);
+
+        if (password.length < 8) {
+            setError("Password should be more than 8 symbols");
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -47,7 +54,7 @@ export default function RegisterPage() {
                 <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={inp} />
                 <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" type="password" style={inp} />
                 {error && <div style={{ fontSize: 12, color: "rgba(255,180,180,0.95)" }}>{error}</div>}
-                <button disabled={loading} style={btn}>
+                <button disabled={loading} style={button}>
                     {loading ? "..." : "Create account"}
                 </button>
                 <div style={{ marginTop: 6, fontSize: 13, opacity: 0.8 }}>
@@ -67,7 +74,7 @@ export default function RegisterPage() {
         outline: "none",
     };
 
-    const btn: React.CSSProperties = {
+    const button: React.CSSProperties = {
         padding: "12px 12px",
         borderRadius: 12,
         background: "rgba(255,255,255,0.9)",

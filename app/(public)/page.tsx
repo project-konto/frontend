@@ -2,7 +2,16 @@
 
 export default function WelcomePage() {
     return (
-        <div style={{ height: "100%", display: "grid", placeItems: "center", padding: 24 }}>
+        <div
+            style={{
+                position: "absolute",
+                inset: 0,
+                display: "grid",
+                placeItems: "center",
+                padding: 24,
+                background: "radial-gradient(900px 700px at 20% 0%, #2f5a6f 0%, #163a4a 40%, #0f2a36 100%)",
+                color: "rgba(255,255,255,0.92)",
+            }}>
             <div style={{ textAlign: "center", width: "100%" }}>
                 <div style={{ opacity: 0.9, fontWeight: 600, letterSpacing: 0.5 }}>Konto</div>
                 <h1 style={{ marginTop: 56, fontSize: 44, lineHeight: 1.05, fontWeight: 800, opacity: 0.95 }}>

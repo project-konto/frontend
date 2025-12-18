@@ -18,7 +18,7 @@ export default function SettingsPage() {
 
         (async () => {
             try {
-                const u = await usersApi.get(userId);
+                const u = await usersApi.me();
                 if (alive)
                     setUser(u);
             }
@@ -40,20 +40,30 @@ export default function SettingsPage() {
     }
 
     return (
-        <div style={{ height: "100%", padding: 16, display: "grid", gap: 12, alignContent: "start" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontWeight: 900, opacity: 0.92 }}>Settings</div>
-                <button style={smallButton} onClick={logout}>Logout</button>
-            </div>
-
+        <div
+            style={{
+                height: "100%",
+                padding: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+            }}
+        >
             <div style={card}>
                 <div style={{ fontWeight: 900, opacity: 0.9 }}>Profile</div>
-                {error && <div style={{ fontSize: 13, color: "rgba(255,180,180,0.95)" }}>{error}</div>}
-                <div style={{ fontSize: 13, opacity: 0.8 }}>
+
+                {error && (
+                    <div style={{ fontSize: 12, opacity: 0.7 }}>
+                        Couldn’t load profile. Showing saved data.
+                    </div>
+                )}
+                <div style={{ fontSize: 16, lineHeight: "22px", opacity: 0.85 }}>
                     <div>Name: {user?.name ?? stored?.name ?? "-"}</div>
                     <div>Email: {user?.email ?? stored?.email ?? "-"}</div>
-                    <div>UserId: {userId ?? "-"}</div>
                 </div>
+            </div>
+            <div style={logoutWrap}>
+                <button style={logoutButton} onClick={logout}>Logout</button>
             </div>
         </div>
     );
@@ -68,12 +78,19 @@ const card: React.CSSProperties = {
     gap: 8,
 };
 
-const smallButton: React.CSSProperties = {
-    padding: "8px 10px",
-    borderRadius: 10,
-    background: "rgba(255,255,255,0.12)",
-    border: "1px solid rgba(255,255,255,0.14)",
-    color: "rgba(255,255,255,0.92)",
-    fontWeight: 800,
+const logoutWrap: React.CSSProperties = {
+    position: "sticky",
+    bottom: 92,
+    paddingTop: 12,
+};
+
+const logoutButton: React.CSSProperties = {
+    width: "100%",
+    padding: "14px 14px",
+    borderRadius: 14,
+    background: "#163a4a",
+    color: "white",
+    fontWeight: 900,
+    border: "none",
     cursor: "pointer",
 };

@@ -82,7 +82,7 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
         let lastTime = startedAt;
 
         try {
-            await apiClient.post("api/transactions/import", form, {
+            await apiClient.post("/api/transactions/import", form, {
                 headers: { "Content-Type": "multipart/form-data" },
                 onUploadProgress: (e) => {
                     const total = e.total ?? file.size;
@@ -128,7 +128,7 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
                         <div style={{ fontWeight: 900, fontSize: 18 }}>Add Transaction</div>
                         <div style={{ opacity: 0.7, fontSize: 12 }}>We support .csv and .pdf</div>
                     </div>
-                    <button style={iconBtn} onClick={close}>×</button>
+                    <button style={iconButton} onClick={close}>×</button>
                 </div>
                 <div style={body}>
                     {stage === "pick" && (
@@ -161,7 +161,7 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
                                 {stage !== "uploading" && (
                                     <button
                                         title="Remove"
-                                        style={trashBtn}
+                                        style={trashButton}
                                         onClick={() => onFileSelected(null)}
                                     >
                                         🗑
@@ -178,11 +178,11 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
                     {error && <div style={errorText}>{error}</div>}
                 </div>
                 <div style={footer}>
-                    <button style={linkBtn} onClick={() => alert("Help can be added later")}>Get Help</button>
+                    <button style={linkButton} onClick={() => alert("Help can be added later")}>Get Help</button>
                     <div style={{ display: "flex", gap: 10 }}>
-                        <button style={btnGhost} onClick={close}>Cancel</button>
+                        <button style={ghostButton} onClick={close}>Cancel</button>
                         <button
-                            style={btnPrimary}
+                            style={primaryButton}
                             onClick={stage === "pick" ? pickFile : upload}
                             disabled={stage === "uploading"}
                         >
@@ -208,38 +208,43 @@ const overlay: React.CSSProperties = {
     background: "rgba(0,0,0,0.35)",
     display: "grid",
     alignItems: "end",
+    paddingBottom: 72,
+    zIndex: 50
 };
 
 const sheet: React.CSSProperties = {
-    background: "rgba(255,255,255,0.92)",
+    background: "#fff",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     padding: 16,
-    minHeight: 420,
+    paddingBottom: 24,
+    minHeight: 520,
+    display: "flex",
+    flexDirection: "column"
 };
 
 const header: React.CSSProperties = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "start",
-    gap: 12,
+    gap: 12
 };
 
-const iconBtn: React.CSSProperties = {
+const iconButton: React.CSSProperties = {
     width: 36,
     height: 36,
     borderRadius: 18,
     border: "none",
     background: "rgba(0,0,0,0.06)",
     cursor: "pointer",
-    fontSize: 18,
+    fontSize: 18
 };
 
 const body: React.CSSProperties = {
     marginTop: 14,
-    minHeight: 250,
+    flex: 1,
     display: "grid",
-    alignContent: "center",
+    placeItems: "center",
 };
 
 const center: React.CSSProperties = {
@@ -263,7 +268,7 @@ const fileIcon: React.CSSProperties = {
     fontSize: 18,
 };
 
-const trashBtn: React.CSSProperties = {
+const trashButton: React.CSSProperties = {
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -287,14 +292,15 @@ const barFill: React.CSSProperties = {
 };
 
 const footer: React.CSSProperties = {
-    marginTop: 14,
+    marginTop: "auto",
+    paddingTop: 14,
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
     gap: 10,
 };
 
-const linkBtn: React.CSSProperties = {
+const linkButton: React.CSSProperties = {
     border: "none",
     background: "transparent",
     color: "rgba(0,0,0,0.55)",
@@ -302,7 +308,7 @@ const linkBtn: React.CSSProperties = {
     fontWeight: 700,
 };
 
-const btnGhost: React.CSSProperties = {
+const ghostButton: React.CSSProperties = {
     padding: "10px 14px",
     borderRadius: 12,
     border: "1px solid rgba(0,0,0,0.15)",
@@ -311,7 +317,7 @@ const btnGhost: React.CSSProperties = {
     fontWeight: 800,
 };
 
-const btnPrimary: React.CSSProperties = {
+const primaryButton: React.CSSProperties = {
     padding: "10px 14px",
     borderRadius: 12,
     border: "none",

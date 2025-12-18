@@ -36,6 +36,39 @@ export default function BudgetPage() {
         }
 
         catch (e: unknown) {
+            const status =
+                (e as { response?: { status?: number } })?.response?.status ?? null;
+
+            if (status === 404) {
+                try {
+                    const stored = JSON.parse(localStorage.getItem("konto_user") ?? "null") as
+                        | { name?: string }
+                        | null;
+
+                    const account = await accountApi.create(stored?.name ?? "Konto");
+                    await budgetApi.create({
+                        accountId: account.accountId,
+                        name: "Main",
+                        initialBalance: 0,
+                        currency: "USD",
+                    });
+
+                    const overview = await accountApi.overview();
+                    setAccountId(overview.accountId);
+                    setBudgets(overview.budgets ?? []);
+
+                    if (!activeBudgetId && overview.budgets?.length)
+                        setActiveBudgetId(overview.budgets[0].budgetId);
+
+                    return;
+                }
+
+                catch (e2: unknown) {
+                    setOverviewErr(getErrorMessage(e2, "Failed to initialize account"));
+                    return;
+                }
+            }
+
             setOverviewErr(getErrorMessage(e, "Failed to load account overview"));
         }
 
@@ -67,46 +100,10 @@ export default function BudgetPage() {
 
     useEffect(() => {
         if (!activeBudgetId) return;
+        localStorage.setItem("konto_active_budget", activeBudgetId);
         void loadDetails(activeBudgetId);
     }, [activeBudgetId]);
 
-    async function createBudget() {
-        const response = await budgetApi.create();
-        await loadOverview();
-        setActiveBudgetId(response.budgetId);
-    }
-
-    async function renameBudget() {
-        if (!activeBudgetId)
-            return;
-
-        const newName = prompt("New budget name:", active?.name ?? "");
-        if (!newName)
-            return;
-
-        await budgetApi.rename(activeBudgetId, newName);
-        await loadOverview();
-        await loadDetails(activeBudgetId);
-    }
-
-    async function deleteBudget() {
-        if (!activeBudgetId)
-            return;
-
-        if (!confirm("Delete this budget?"))
-            return;
-
-        await budgetApi.delete(activeBudgetId);
-        setActiveBudgetId(null);
-        setDetails(null);
-        await loadOverview();
-    }
-
-    async function createAccountIfMissing() {
-        const response = await accountApi.create();
-        setAccountId(response.accountId);
-        await loadOverview();
-    }
 
     return (
         <div
@@ -119,20 +116,9 @@ export default function BudgetPage() {
                 position: "relative",
             }}
         >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ fontWeight: 900, opacity: 0.92 }}>Budgets</div>
-                <button style={btnSmall} onClick={createBudget}>
-                    + Create
-                </button>
-            </div>
             {overviewLoading && <div style={muted}>Loading...</div>}
             {overviewErr && (
-                <div style={{ display: "grid", gap: 10 }}>
-                    <div style={{ color: "rgba(255,180,180,0.95)" }}>{overviewErr}</div>
-                    <button style={btn} onClick={createAccountIfMissing}>
-                        Create account
-                    </button>
-                </div>
+                <div style={{ color: "rgba(255,180,180,0.95)" }}>{overviewErr}</div>
             )}
             {!overviewLoading && !overviewErr && (
                 <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 12, minHeight: 0 }}>
@@ -158,60 +144,21 @@ export default function BudgetPage() {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
                                 <div style={{ fontWeight: 900 }}>{details?.name ?? active?.name ?? "Budget"}</div>
-                                <div style={{ fontSize: 12, opacity: 0.7 }}>Account: {accountId ?? "-"}</div>
-                            </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                                <button style={btnSmall} onClick={renameBudget}>
-                                    Rename
-                                </button>
-                                <button style={{ ...btnSmall, background: "rgba(255,120,120,0.16)" }} onClick={deleteBudget}>
-                                    Delete
-                                </button>
                             </div>
                         </div>
-                        <div style={{ marginTop: 12, fontWeight: 800, opacity: 0.9 }}>Transactions</div>
                         {detailsLoading && <div style={muted}>Loading transactions...</div>}
-                        {!detailsLoading && (
-                            <>
-                                {hasNoData ? (
-                                    <div style={{ height: 320, display: "grid", placeItems: "center" }}>
-                                        <div style={{ textAlign: "center" }}>
-                                            <div style={{ fontWeight: 900, opacity: 0.85, fontSize: 18 }}>No data</div>
-                                            <div style={{ marginTop: 10 }}>
-                                                <button
-                                                    style={btn}
-                                                    onClick={() => {
-                                                        // если бюджета нет, импортировать некуда
-                                                        if (!activeBudgetId) return;
-                                                        setImportOpen(true);
-                                                    }}
-                                                    disabled={!activeBudgetId}
-                                                >
-                                                    Add Transaction
-                                                </button>
-                                            </div>
-                                            {!activeBudgetId && (
-                                                <div style={{ marginTop: 10, fontSize: 12, opacity: 0.7 }}>
-                                                    Create a budget first
-                                                </div>
-                                            )}
-                                        </div>
+                        {!detailsLoading && hasNoData && (
+                            <div style={emptyWrap}>
+                                <div style={{ textAlign: "center" }}>
+                                    <div style={{ fontWeight: 900, fontSize: 16, opacity: 0.85 }}>
+                                        No Data to Create Statistics
                                     </div>
-                                ) : (
-                                    <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                                        {(details?.transactions ?? []).map((t) => (
-                                            <div key={t.transactionId} style={row}>
-                                                <div style={{ fontWeight: 800 }}>{t.amount}</div>
-                                                <div style={{ fontSize: 12, opacity: 0.75, textAlign: "right" }}>
-                                                    {t.description ?? "—"}
-                                                    <br />
-                                                    {new Date(t.createdAt).toLocaleString()}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </>
+
+                                    <button style={importButton} onClick={() => setImportOpen(true)}>
+                                        Import Data
+                                    </button>
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -237,14 +184,12 @@ const card: React.CSSProperties = {
     background: "rgba(255,255,255,0.06)",
 };
 
-const row: React.CSSProperties = {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "10px 10px",
-    borderRadius: 12,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
+const emptyWrap: React.CSSProperties = {
+    position: "absolute",
+    inset: 0,
+    display: "grid",
+    placeItems: "center",
+    padding: 16,
 };
 
 const chip: React.CSSProperties = {
@@ -257,24 +202,16 @@ const chip: React.CSSProperties = {
     cursor: "pointer",
 };
 
-const btn: React.CSSProperties = {
-    padding: "12px 14px",
-    borderRadius: 12,
-    background: "rgba(255,255,255,0.9)",
-    color: "#163a4a",
+const importButton: React.CSSProperties = {
+    marginTop: 14,
+    width: 240,
+    padding: "14px 14px",
+    borderRadius: 14,
+    background: "#163a4a",
+    color: "white",
     fontWeight: 900,
     border: "none",
-    cursor: "pointer",
-};
-
-const btnSmall: React.CSSProperties = {
-    padding: "8px 10px",
-    borderRadius: 10,
-    background: "rgba(255,255,255,0.12)",
-    border: "1px solid rgba(255,255,255,0.14)",
-    color: "rgba(255,255,255,0.92)",
-    fontWeight: 800,
-    cursor: "pointer",
+    cursor: "pointer"
 };
 
 const muted: React.CSSProperties = { fontSize: 13, opacity: 0.75 };

@@ -19,9 +19,17 @@ apiClient.interceptors.response.use(
     (result) => result,
     (error) => {
         const status = error?.response?.status;
+        const url = (error?.config?.url as string | undefined) ?? "";
+
         if (status === 401 && typeof window !== "undefined") {
+            if (url.includes("/api/auth/"))
+                return Promise.reject(error);
+
             authStorage.clearAll();
-            window.location.href = "/login";
+
+            const path = window.location.pathname;
+            if (path !== "/login" && path !== "/register")
+                window.location.href = "/login";
         }
 
         return Promise.reject(error);

@@ -7,10 +7,10 @@ export type LoginResponse = { token: string; userId: string; name: string; email
 
 export const authApi = {
     register(payload: RegisterRequest) {
-        return apiClient.post<RegisterResponse>('api/auth/register', payload).then(r => r.data);
+        return apiClient.post<RegisterResponse>('/api/auth/register', payload).then(r => r.data);
     },
 
     login(payload: LoginRequest) {
-        return apiClient.post<LoginResponse>('api/auth/login', payload).then(r => r.data);
+        return apiClient.post<LoginResponse>('/api/auth/login', payload).then(r => r.data);
     }
 };
