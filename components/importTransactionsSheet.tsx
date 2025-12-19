@@ -2,6 +2,8 @@
 
 import { useMemo, useRef, useState } from "react";
 import apiClient from "@/lib/apiClient";
+import { accountApi } from "@/lib/api/account";
+import { budgetApi } from "@/lib/api/budget";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 
 type Props = {
@@ -11,14 +13,21 @@ type Props = {
     onImported?: () => void;
 };
 type Stage = "pick" | "ready" | "uploading" | "done";
+type ImportResultDto = {
+    TotalProcessed: number;
+    SuccessCount: number;
+    FailedCount: number;
+    Errors: string[];
+}
 
-export default function ImportTransactionsSheet({ open, onClose, budgetId, onImported }: Props) {
+export default function ImportTransactionsSheet({ open, onClose, onImported, budgetId }: Props) {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [stage, setStage] = useState<Stage>("pick");
     const [file, setFile] = useState<File | null>(null);
     const [progress, setProgress] = useState(0);
     const [etaSec, setEtaSec] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [result, setResult] = useState<ImportResultDto | null>(null);
 
     const fileSizeLabel = useMemo(() => {
         if (!file)
@@ -40,7 +49,7 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
 
         if (inputRef.current)
             inputRef.current.value = "";
-    };
+    }
 
     function close() {
         reset();
@@ -55,10 +64,49 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
         setError(null);
         setFile(file);
         setStage(file ? "ready" : "pick");
+
+        if (!file && inputRef.current)
+            inputRef.current.value = "";
     }
 
     async function upload() {
-        if (!budgetId) {
+        let activeId = budgetId;
+        if (!activeId) {
+            try {
+                if (typeof window !== "undefined") {
+                    const stored = localStorage.getItem("konto_active_budget");
+                    if (stored) {
+                        activeId = stored;
+                    }
+                }
+
+                if (!activeId) {
+                    const overview = await accountApi.overview();
+                    activeId = overview.budgets?.[0]?.budgetId ?? null;
+
+                    if (!activeId) {
+                        const newBudget = await budgetApi.create({
+                            accountId: overview.accountId,
+                            name: "Main",
+                            initialBalance: 0,
+                            currency: "RUB",
+                        });
+
+                        activeId = newBudget.budgetId;
+                        if (typeof window !== "undefined" && activeId) {
+                            localStorage.setItem("konto_active_budget", activeId);
+                        }
+                    }
+                }
+            }
+
+            catch (e) {
+                setError(getErrorMessage(e, "Failed to resolve budget"));
+                return;
+            }
+        }
+
+        if (!activeId) {
             setError("No budget selected");
             return;
         }
@@ -72,17 +120,18 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
         setStage("uploading");
         setProgress(0);
         setEtaSec(null);
+        setResult(null);
 
         const form = new FormData();
-        form.append("budgetId", budgetId);
         form.append("file", file);
+        form.append("budgetId", activeId);
 
         const startedAt = performance.now();
         let lastLoaded = 0;
         let lastTime = startedAt;
 
         try {
-            await apiClient.post("/api/transactions/import", form, {
+            const result = await apiClient.post<ImportResultDto>("/api/transactions/import", form, {
                 headers: { "Content-Type": "multipart/form-data" },
                 onUploadProgress: (e) => {
                     const total = e.total ?? file.size;
@@ -95,7 +144,7 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
 
                     if (dt >= 0.25) {
                         const dLoaded = loaded - lastLoaded;
-                        const speed = dLoaded / dt; // bytes/sec
+                        const speed = dLoaded / dt;
 
                         if (speed > 0) {
                             const remaining = Math.max(0, total - loaded);
@@ -108,6 +157,7 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
                 }
             });
 
+            setResult(result.data);
             setStage("done");
             setProgress(100);
             setEtaSec(0);
@@ -169,8 +219,25 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
                                 )}
                             </div>
                             {stage === "done" && (
-                                <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
-                                    Uploaded successfully
+                                <div style={{ display: "grid", gap: 8, textAlign: "center" }}>
+                                    <div style={{ fontWeight: 900, fontSize: 16 }}>
+                                        Import finished
+                                    </div>
+                                    {result && (
+                                        <div style={{ fontSize: 13, opacity: 0.8 }}>
+                                            Processed: {result.TotalProcessed} • Success: {result.SuccessCount} • Failed: {result.FailedCount}
+                                        </div>
+                                    )}
+                                    {result?.Errors?.length ? (
+                                        <div style={{ textAlign: "left", fontSize: 12, opacity: 0.85, marginTop: 6 }}>
+                                            <div style={{ fontWeight: 900, marginBottom: 6 }}>Some rows failed:</div>
+                                            <ul style={{ paddingLeft: 18, margin: 0, display: "grid", gap: 4 }}>
+                                                {result.Errors.slice(0, 5).map((e, i) => (
+                                                    <li key={i}>{e}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    ) : null}
                                 </div>
                             )}
                         </div>
@@ -186,14 +253,18 @@ export default function ImportTransactionsSheet({ open, onClose, budgetId, onImp
                             onClick={stage === "pick" ? pickFile : upload}
                             disabled={stage === "uploading"}
                         >
-                            {stage === "pick" ? "Choose file" : stage === "uploading" ? "Uploading..." : "Upload"}
+                            {stage === "pick"
+                                ? "Choose file"
+                                : stage === "uploading"
+                                    ? "Uploading..."
+                                    : "Upload"}
                         </button>
                     </div>
                 </div>
                 <input
                     ref={inputRef}
                     type="file"
-                    accept=".csv,.pdf"
+                    accept=".csv,.pdf,application/pdf,text/csv"
                     style={{ display: "none" }}
                     onChange={(e) => onFileSelected(e.target.files?.[0] ?? null)}
                 />
@@ -208,8 +279,8 @@ const overlay: React.CSSProperties = {
     background: "rgba(0,0,0,0.35)",
     display: "grid",
     alignItems: "end",
-    paddingBottom: 72,
-    zIndex: 50
+    paddingBottom: 12,
+    zIndex: 50,
 };
 
 const sheet: React.CSSProperties = {
@@ -218,9 +289,9 @@ const sheet: React.CSSProperties = {
     borderTopRightRadius: 22,
     padding: 16,
     paddingBottom: 24,
-    minHeight: 520,
+    minHeight: 350,
     display: "flex",
-    flexDirection: "column"
+    flexDirection: "column",
 };
 
 const header: React.CSSProperties = {

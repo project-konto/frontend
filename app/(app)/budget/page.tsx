@@ -20,6 +20,7 @@ export default function BudgetPage() {
         [budgets, activeBudgetId]
     );
     const hasNoData = (details?.transactions?.length ?? 0) === 0;
+    const effectiveBudgetId = activeBudgetId ?? (budgets[0]?.budgetId ?? null);
 
     async function loadOverview() {
         setOverviewLoading(true);
@@ -165,11 +166,12 @@ export default function BudgetPage() {
             )}
             <ImportTransactionsSheet
                 open={isImportOpen}
+                budgetId={effectiveBudgetId}
                 onClose={() => setImportOpen(false)}
-                budgetId={activeBudgetId}
                 onImported={() => {
-                    if (activeBudgetId)
-                        void loadDetails(activeBudgetId);
+                    setImportOpen(false);
+                    if (effectiveBudgetId)
+                        void loadDetails(effectiveBudgetId);
                 }}
             />
         </div>

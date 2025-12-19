@@ -25,6 +25,13 @@ export default function RegisterPage() {
             return;
         }
 
+        const emailParts = email.split("@");
+        if (emailParts.length !== 2 || emailParts[0].length === 0 || !emailParts[1].includes(".")) {
+            setError("Invalid email format");
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -48,7 +55,16 @@ export default function RegisterPage() {
     return (
         <div style={{ height: "100%", padding: 20, display: "grid", alignContent: "center" }}>
             <h2 style={{ fontSize: 24, margin: 0, color: "rgba(255,255,255,0.92)" }}>Sign up</h2>
-            <p style={{ marginTop: 6, opacity: 0.7, fontSize: 13 }}>Create your Konto account.</p>
+            <p
+                style={{
+                    marginTop: 6,
+                    opacity: 0.7,
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.8)",
+                }}
+            >
+                Create your Konto account.
+            </p>
             <form onSubmit={onSubmit} style={{ marginTop: 16, display: "grid", gap: 10 }}>
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" style={inp} />
                 <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={inp} />
@@ -57,29 +73,36 @@ export default function RegisterPage() {
                 <button disabled={loading} style={button}>
                     {loading ? "..." : "Create account"}
                 </button>
-                <div style={{ marginTop: 6, fontSize: 13, opacity: 0.8 }}>
+                <div
+                    style={{
+                        marginTop: 6,
+                        fontSize: 13,
+                        opacity: 0.8,
+                        color: "rgba(255,255,255,0.85)",
+                    }}
+                >
                     Have an account? <Link href="/login" style={{ color: "rgba(255,255,255,0.95)" }}>Log in</Link>
                 </div>
             </form>
         </div>
-        );
-    }
+    );
+}
 
-    const inp: React.CSSProperties = {
-        padding: "12px 12px",
-        borderRadius: 12,
-        background: "rgba(255,255,255,0.08)",
-        border: "1px solid rgba(255,255,255,0.14)",
-        color: "rgba(255,255,255,0.92)",
-        outline: "none",
-    };
+const inp: React.CSSProperties = {
+    padding: "12px 12px",
+    borderRadius: 12,
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.14)",
+    color: "rgba(255,255,255,0.92)",
+    outline: "none",
+};
 
-    const button: React.CSSProperties = {
-        padding: "12px 12px",
-        borderRadius: 12,
-        background: "rgba(255,255,255,0.9)",
-        color: "#163a4a",
-        fontWeight: 800,
-        border: "none",
-        cursor: "pointer",
-    };
+const button: React.CSSProperties = {
+    padding: "12px 12px",
+    borderRadius: 12,
+    background: "rgba(255,255,255,0.9)",
+    color: "#163a4a",
+    fontWeight: 800,
+    border: "none",
+    cursor: "pointer",
+};
