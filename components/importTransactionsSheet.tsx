@@ -70,49 +70,20 @@ export default function ImportTransactionsSheet({ open, onClose, onImported, bud
     }
 
     async function upload() {
+        if (!file) {
+            setError("Choose a file first");
+            return;
+        }
+
         let activeId = budgetId;
-        if (!activeId) {
-            try {
-                if (typeof window !== "undefined") {
-                    const stored = localStorage.getItem("konto_active_budget");
-                    if (stored) {
-                        activeId = stored;
-                    }
-                }
-
-                if (!activeId) {
-                    const overview = await accountApi.overview();
-                    activeId = overview.budgets?.[0]?.budgetId ?? null;
-
-                    if (!activeId) {
-                        const newBudget = await budgetApi.create({
-                            accountId: overview.accountId,
-                            name: "Main",
-                            initialBalance: 0,
-                            currency: "RUB",
-                        });
-
-                        activeId = newBudget.budgetId;
-                        if (typeof window !== "undefined" && activeId) {
-                            localStorage.setItem("konto_active_budget", activeId);
-                        }
-                    }
-                }
-            }
-
-            catch (e) {
-                setError(getErrorMessage(e, "Failed to resolve budget"));
-                return;
-            }
+        if (!activeId && typeof window !== "undefined") {
+            const stored = localStorage.getItem("konto_active_budget");
+            if (stored)
+                activeId = stored;
         }
 
         if (!activeId) {
             setError("No budget selected");
-            return;
-        }
-
-        if (!file) {
-            setError("Choose a file first");
             return;
         }
 

@@ -37,39 +37,6 @@ export default function BudgetPage() {
         }
 
         catch (e: unknown) {
-            const status =
-                (e as { response?: { status?: number } })?.response?.status ?? null;
-
-            if (status === 404) {
-                try {
-                    const stored = JSON.parse(localStorage.getItem("konto_user") ?? "null") as
-                        | { name?: string }
-                        | null;
-
-                    const account = await accountApi.create(stored?.name ?? "Konto");
-                    await budgetApi.create({
-                        accountId: account.accountId,
-                        name: "Main",
-                        initialBalance: 0,
-                        currency: "USD",
-                    });
-
-                    const overview = await accountApi.overview();
-                    setAccountId(overview.accountId);
-                    setBudgets(overview.budgets ?? []);
-
-                    if (!activeBudgetId && overview.budgets?.length)
-                        setActiveBudgetId(overview.budgets[0].budgetId);
-
-                    return;
-                }
-
-                catch (e2: unknown) {
-                    setOverviewErr(getErrorMessage(e2, "Failed to initialize account"));
-                    return;
-                }
-            }
-
             setOverviewErr(getErrorMessage(e, "Failed to load account overview"));
         }
 
@@ -100,10 +67,10 @@ export default function BudgetPage() {
     }, []);
 
     useEffect(() => {
-        if (!activeBudgetId) return;
-        localStorage.setItem("konto_active_budget", activeBudgetId);
-        void loadDetails(activeBudgetId);
-    }, [activeBudgetId]);
+        if (budgets.length > 0 && !activeBudgetId) {
+            setActiveBudgetId(budgets[0].budgetId);
+        }
+    }, [budgets, activeBudgetId]);
 
 
     return (
@@ -166,12 +133,11 @@ export default function BudgetPage() {
             )}
             <ImportTransactionsSheet
                 open={isImportOpen}
-                budgetId={effectiveBudgetId}
+                budgetId={effectiveBudgetId ?? undefined}
                 onClose={() => setImportOpen(false)}
                 onImported={() => {
                     setImportOpen(false);
-                    if (effectiveBudgetId)
-                        void loadDetails(effectiveBudgetId);
+                    if (effectiveBudgetId) void loadDetails(effectiveBudgetId);
                 }}
             />
         </div>
