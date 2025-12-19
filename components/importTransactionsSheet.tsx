@@ -132,7 +132,6 @@ export default function ImportTransactionsSheet({ open, onClose, onImported, bud
 
         try {
             const result = await apiClient.post<ImportResultDto>("/api/transactions/import", form, {
-                headers: { "Content-Type": "multipart/form-data" },
                 onUploadProgress: (e) => {
                     const total = e.total ?? file.size;
                     const loaded = e.loaded ?? 0;
@@ -274,12 +273,11 @@ export default function ImportTransactionsSheet({ open, onClose, onImported, bud
 }
 
 const overlay: React.CSSProperties = {
-    position: "absolute",
+    position: "fixed",
     inset: 0,
     background: "rgba(0,0,0,0.35)",
     display: "grid",
     alignItems: "end",
-    paddingBottom: 12,
     zIndex: 50,
 };
 
