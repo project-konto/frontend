@@ -2,9 +2,11 @@
 
 export type CreateAccountResponse = { accountId: string };
 export type AccountOverviewDto = {
-    accountId: string;
-    budgets: { budgetId: string; name: string; balance: number }[];
-}
+    id: string;
+    name: string;
+    createdAt: string;
+    budgets: { id: string; name: string; balance: number; currency: string }[];
+};
 
 export const accountApi = {
     create(name: string) {

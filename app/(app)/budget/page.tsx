@@ -10,17 +10,17 @@ export default function BudgetPage() {
     const [overviewLoading, setOverviewLoading] = useState(true);
     const [overviewErr, setOverviewErr] = useState<string | null>(null);
     const [accountId, setAccountId] = useState<string | null>(null);
-    const [budgets, setBudgets] = useState<{ budgetId: string; name: string; balance: number }[]>([]);
+    const [budgets, setBudgets] = useState<{ id: string; name: string; balance: number; currency: string }[]>([]);
     const [activeBudgetId, setActiveBudgetId] = useState<string | null>(null);
     const [details, setDetails] = useState<BudgetDetailsDto | null>(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [isImportOpen, setImportOpen] = useState(false);
     const active = useMemo(
-        () => budgets.find((b) => b.budgetId === activeBudgetId),
+        () => budgets.find((b) => b.id === activeBudgetId),
         [budgets, activeBudgetId]
     );
     const hasNoData = (details?.transactions?.length ?? 0) === 0;
-    const effectiveBudgetId = activeBudgetId ?? (budgets[0]?.budgetId ?? null);
+    const effectiveBudgetId = activeBudgetId ?? budgets[0]?.id ?? null;
 
     async function loadOverview() {
         setOverviewLoading(true);
@@ -28,11 +28,11 @@ export default function BudgetPage() {
 
         try {
             const overview = await accountApi.overview();
-            setAccountId(overview.accountId);
+            setAccountId(overview.id);
             setBudgets(overview.budgets ?? []);
 
             if (!activeBudgetId && overview.budgets?.length)
-                setActiveBudgetId(overview.budgets[0].budgetId);
+                setActiveBudgetId(overview.budgets[0].id);
 
         }
 
@@ -68,7 +68,7 @@ export default function BudgetPage() {
 
     useEffect(() => {
         if (budgets.length > 0 && !activeBudgetId) {
-            setActiveBudgetId(budgets[0].budgetId);
+            setActiveBudgetId(budgets[0].id);
         }
     }, [budgets, activeBudgetId]);
 
@@ -93,12 +93,12 @@ export default function BudgetPage() {
                     <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
                         {budgets.map((b) => (
                             <button
-                                key={b.budgetId}
-                                onClick={() => setActiveBudgetId(b.budgetId)}
+                                key={b.id}
+                                onClick={() => setActiveBudgetId(b.id)}
                                 style={{
                                     ...chip,
                                     background:
-                                        b.budgetId === activeBudgetId
+                                        b.id === activeBudgetId
                                             ? "rgba(255,255,255,0.18)"
                                             : "rgba(255,255,255,0.08)",
                                 }}
@@ -133,7 +133,7 @@ export default function BudgetPage() {
             )}
             <ImportTransactionsSheet
                 open={isImportOpen}
-                budgetId={effectiveBudgetId ?? undefined}
+                budgetId={effectiveBudgetId}
                 onClose={() => setImportOpen(false)}
                 onImported={() => {
                     setImportOpen(false);
