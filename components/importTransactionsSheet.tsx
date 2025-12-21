@@ -70,6 +70,9 @@ export default function ImportTransactionsSheet({ open, onClose, onImported, bud
     }
 
     async function upload() {
+        if (stage === "uploading")
+            return;
+
         if (!file) {
             setError("Choose a file first");
             return;
