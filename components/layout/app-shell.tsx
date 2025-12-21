@@ -7,10 +7,18 @@ import { usePathname } from "next/navigation";
 type AppShellProperties = { children: React.ReactNode };
 
 function getPageTitle(pathname: string): string {
-    if (pathname === "/") return "Home";
-    if (pathname.startsWith("/budget")) return "Budget";
-    if (pathname.startsWith("/transactions")) return "Transactions";
-    if (pathname.startsWith("/settings")) return "Settings";
+    if (pathname === "/")
+        return "Home";
+
+    if (pathname.startsWith("/budget"))
+        return "Budget";
+
+    if (pathname.startsWith("/transactions"))
+        return "Transactions";
+
+    if (pathname.startsWith("/settings"))
+        return "Settings";
+
     return "Budget";
 }
 

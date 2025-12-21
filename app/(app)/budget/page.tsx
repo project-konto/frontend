@@ -5,74 +5,25 @@ import { accountApi } from "@/lib/api/account";
 import { budgetApi, BudgetDetailsDto } from "@/lib/api/budget";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import ImportTransactionsSheet from "@/components/importTransactionsSheet";
+import BudgetOverview from "@/components/budgetOverview";
+import LogTransactionSheet from "@/components/logTransactionSheet";
 
 export default function BudgetPage() {
     const [overviewLoading, setOverviewLoading] = useState(true);
     const [overviewErr, setOverviewErr] = useState<string | null>(null);
-    const [accountId, setAccountId] = useState<string | null>(null);
     const [budgets, setBudgets] = useState<{ id: string; name: string; balance: number; currency: string }[]>([]);
     const [activeBudgetId, setActiveBudgetId] = useState<string | null>(null);
     const [details, setDetails] = useState<BudgetDetailsDto | null>(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [isImportOpen, setImportOpen] = useState(false);
+    const [logType, setLogType] = useState<"Income" | "Expense" | null>(null);
     const active = useMemo(
         () => budgets.find((b) => b.id === activeBudgetId),
         [budgets, activeBudgetId]
     );
     const hasNoData = (details?.transactions?.length ?? 0) === 0;
     const effectiveBudgetId = activeBudgetId ?? budgets[0]?.id ?? null;
-
-    const [range, setRange] = useState<7 | 30>(7);
-
     const currency = details?.currency ?? active?.currency ?? "RUB";
-
-    const expenseTotal = useMemo(() => {
-        if (!details) return 0;
-        return details.transactions
-            .filter(t => t.type === "Expense")
-            .reduce((s, t) => s + (t.amount ?? 0), 0);
-    }, [details]);
-
-    const incomeTotal = useMemo(() => {
-        if (!details) return 0;
-        return details.transactions
-            .filter(t => t.type === "Income")
-            .reduce((s, t) => s + (t.amount ?? 0), 0);
-    }, [details]);
-
-    type DayBar = { key: string; label: string; value: number };
-
-    const expenseBars = useMemo<DayBar[]>(() => {
-        if (!details) return [];
-
-        const now = new Date();
-        const start = new Date(now);
-        start.setHours(0, 0, 0, 0);
-        start.setDate(start.getDate() - (range - 1));
-
-        // подготовим дни
-        const days: DayBar[] = [];
-        const map = new Map<string, number>();
-
-        for (let i = 0; i < range; i++) {
-            const d = new Date(start);
-            d.setDate(start.getDate() + i);
-            const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
-            const label = d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
-            days.push({ key, label, value: 0 });
-            map.set(key, 0);
-        }
-
-        // суммируем расходы по дням
-        for (const t of details.transactions) {
-            if (t.type !== "Expense") continue;
-            const key = t.date.slice(0, 10);
-            if (!map.has(key)) continue;
-            map.set(key, (map.get(key) ?? 0) + Math.abs(t.amount ?? 0));
-        }
-
-        return days.map(d => ({ ...d, value: map.get(d.key) ?? 0 }));
-    }, [details, range]);
 
     async function loadOverview() {
         setOverviewLoading(true);
@@ -80,12 +31,24 @@ export default function BudgetPage() {
 
         try {
             const overview = await accountApi.overview();
-            setAccountId(overview.id);
-            setBudgets(overview.budgets ?? []);
+            const list = overview.budgets ?? [];
+            setBudgets(list);
 
-            if (!activeBudgetId && overview.budgets?.length)
-                setActiveBudgetId(overview.budgets[0].id);
+            const stored = typeof window !== "undefined"
+                ? localStorage.getItem("konto_active_budget")
+                : null;
 
+            const storedExists = stored && list.some(b => b.id === stored);
+            const initial = storedExists ? stored : (list[0]?.id ?? null);
+
+            if (typeof window !== "undefined") {
+                if (initial)
+                    localStorage.setItem("konto_active_budget", initial);
+
+                else localStorage.removeItem("konto_active_budget");
+            }
+
+            setActiveBudgetId(initial);
         }
 
         catch (e: unknown) {
@@ -100,11 +63,21 @@ export default function BudgetPage() {
     async function loadDetails(id: string) {
         setDetailsLoading(true);
         try {
-            const details = await budgetApi.details(id);
-            setDetails(details);
+            const d = await budgetApi.details(id);
+            setDetails(d);
         }
 
-        catch (e: unknown) {
+        catch (e: any) {
+            const status = e?.response?.status;
+
+            if (status === 404 && typeof window !== "undefined") {
+                localStorage.removeItem("konto_active_budget");
+                setActiveBudgetId(null);
+                setDetails(null);
+                void loadOverview();
+                return;
+            }
+
             console.error(getErrorMessage(e, "Failed to load budget details"));
             setDetails(null);
         }
@@ -125,100 +98,48 @@ export default function BudgetPage() {
         }
     }, [activeBudgetId]);
 
-
     return (
-        <div
-            style={{
-                height: "100%",
-                padding: 16,
-                display: "grid",
-                gridTemplateRows: "auto 1fr",
-                gap: 12,
-                position: "relative",
-            }}
-        >
+        <div style={page}>
             {overviewLoading && <div style={muted}>Loading...</div>}
-            {overviewErr && (
-                <div style={{ color: "rgba(255,180,180,0.95)" }}>{overviewErr}</div>
-            )}
+            {overviewErr && <div style={{ color: "rgba(255,180,180,0.95)" }}>{overviewErr}</div>}
             {!overviewLoading && !overviewErr && (
                 <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 12, minHeight: 0 }}>
-                    <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
-                        {budgets.map((b) => (
-                            <button
-                                key={b.id}
-                                onClick={() => setActiveBudgetId(b.id)}
-                                style={{
-                                    ...chip,
-                                    background:
-                                        b.id === activeBudgetId
-                                            ? "rgba(255,255,255,0.18)"
-                                            : "rgba(255,255,255,0.08)",
-                                }}
-                            >
-                                <div style={{ fontWeight: 800, fontSize: 13 }}>{b.name}</div>
-                                <div style={{ fontSize: 12, opacity: 0.7 }}>{b.balance}</div>
-                            </button>
-                        ))}
-                    </div>
                     <div style={card}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <div>
-                                <div style={{ fontWeight: 900 }}>{details?.name ?? active?.name ?? "Budget"}</div>
+                                <div style={{ fontWeight: 900, fontSize: 18 }}>{details?.name ?? active?.name ?? "Budget"}</div>
                             </div>
                         </div>
-                        {detailsLoading && <div style={muted}>Loading transactions...</div>}
+                        {detailsLoading && <div style={muted}>Loading...</div>}
+                        {!detailsLoading && hasNoData && (
+                            <div style={emptyWrap}>
+                                <div style={{ textAlign: "center" }}>
+                                    <div style={{ fontWeight: 900, fontSize: 16, opacity: 0.85 }}>
+                                        No Data to Create Statistics
+                                    </div>
+                                    <div style={{ display: "grid", gap: 10, marginTop: 14, justifyItems: "center" }}>
+                                        <button style={primaryBtn} onClick={() => setImportOpen(true)}>
+                                            Import file
+                                        </button>
+                                        <button style={secondaryBtn} onClick={() => setLogType("Expense")}>
+                                            + Log expense
+                                        </button>
+                                        <button style={secondaryBtn} onClick={() => setLogType("Income")}>
+                                            + Log income
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {!detailsLoading && !hasNoData && details && (
-                            <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                                    <div style={{ fontWeight: 900, opacity: 0.9 }}>Overview</div>
-                                    <div style={{ display: "flex", gap: 8 }}>
-                                        <button
-                                            style={{ ...rangeButton, ...(range === 7 ? rangeButtonActive : {}) }}
-                                            onClick={() => setRange(7)}
-                                        >
-                                            7d
-                                        </button>
-                                        <button
-                                            style={{ ...rangeButton, ...(range === 30 ? rangeButtonActive : {}) }}
-                                            onClick={() => setRange(30)}
-                                        >
-                                            30d
-                                        </button>
-                                    </div>
-                                </div>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                                    <div style={statCard}>
-                                        <div style={statLabel}>Revenue</div>
-                                        <div style={statValue}>{incomeTotal.toFixed(2)} {currency}</div>
-                                    </div>
-                                    <div style={statCard}>
-                                        <div style={statLabel}>Expense</div>
-                                        <div style={statValue}>{expenseTotal.toFixed(2)} {currency}</div>
-                                    </div>
-                                </div>
-
-                                <div style={chartCard}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                                        <div style={{ fontWeight: 900, opacity: 0.9 }}>Expenses</div>
-                                        <div style={{ fontSize: 12, opacity: 0.7 }}>{range} days</div>
-                                    </div>
-
-                                    <div style={chartWrap}>
-                                        {expenseBars.map((b) => {
-                                            const max = Math.max(1, ...expenseBars.map(x => x.value));
-                                            const h = Math.round((b.value / max) * 100);
-                                            return (
-                                                <div key={b.key} style={barCol} title={`${b.label}: ${b.value.toFixed(2)} ${currency}`}>
-                                                    <div style={barTrack}>
-                                                        <div style={{ ...barFill, height: `${h}%` }} />
-                                                    </div>
-                                                    <div style={barLabel}>{b.label}</div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
+                            <div style={{ marginTop: 12 }}>
+                                <BudgetOverview
+                                    details={details}
+                                    currency={currency}
+                                    onImport={() => setImportOpen(true)}
+                                    onLogIncome={() => setLogType("Income")}
+                                    onLogExpense={() => setLogType("Expense")}
+                                />
                             </div>
                         )}
                     </div>
@@ -233,16 +154,41 @@ export default function BudgetPage() {
                     if (effectiveBudgetId) void loadDetails(effectiveBudgetId);
                 }}
             />
+            <LogTransactionSheet
+                open={logType !== null}
+                budgetId={effectiveBudgetId}
+                type={logType ?? "Expense"}
+                onClose={() => setLogType(null)}
+                onLogged={() => {
+                    if (effectiveBudgetId) void loadDetails(effectiveBudgetId);
+                }}
+            />
         </div>
     );
+}
+
+const page: React.CSSProperties = {
+    height: "100%",
+    padding: 16,
+    display: "grid",
+    gridTemplateRows: "auto 1fr",
+    gap: 12,
+    position: "relative",
 };
 
 const card: React.CSSProperties = {
     minHeight: 0,
     padding: 12,
-    borderRadius: 14,
+    borderRadius: 18,
     border: "1px solid rgba(255,255,255,0.12)",
     background: "rgba(255,255,255,0.06)",
+};
+
+const emptyWrap: React.CSSProperties = {
+    position: "relative",
+    display: "grid",
+    placeItems: "center",
+    padding: 16,
 };
 
 const chip: React.CSSProperties = {
@@ -255,79 +201,29 @@ const chip: React.CSSProperties = {
     cursor: "pointer",
 };
 
-const muted: React.CSSProperties = { fontSize: 13, opacity: 0.75 };
-
-const statCard: React.CSSProperties = {
-    padding: 12,
+const primaryBtn: React.CSSProperties = {
+    width: 240,
+    padding: "14px 14px",
     borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.06)",
-};
-
-const statLabel: React.CSSProperties = { fontSize: 12, opacity: 0.7 };
-const statValue: React.CSSProperties = { fontWeight: 900, fontSize: 18, marginTop: 6 };
-
-const chartCard: React.CSSProperties = {
-    padding: 12,
-    borderRadius: 14,
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.06)",
-    display: "grid",
-    gap: 10,
-};
-
-const chartWrap: React.CSSProperties = {
-    display: "grid",
-    gridAutoFlow: "column",
-    gridAutoColumns: "1fr",
-    gap: 8,
-    alignItems: "end",
-    height: 180,
-    marginTop: 6,
-};
-
-const barCol: React.CSSProperties = {
-    display: "grid",
-    gap: 6,
-    alignItems: "end",
-    minWidth: 0,
-};
-
-const barTrack: React.CSSProperties = {
-    height: 140,
-    borderRadius: 10,
-    background: "rgba(255,255,255,0.06)",
-    border: "1px solid rgba(255,255,255,0.10)",
-    overflow: "hidden",
-    display: "flex",
-    alignItems: "flex-end",
-};
-
-const barFill: React.CSSProperties = {
-    width: "100%",
-    background: "rgba(120, 190, 255, 0.55)",
-};
-
-const barLabel: React.CSSProperties = {
-    fontSize: 10,
-    opacity: 0.7,
-    textAlign: "center",
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-};
-
-const rangeButton: React.CSSProperties = {
-    padding: "6px 10px",
-    borderRadius: 10,
-    border: "1px solid rgba(255,255,255,0.16)",
-    background: "rgba(255,255,255,0.06)",
-    color: "rgba(255,255,255,0.92)",
-    fontWeight: 800,
+    background: "#2d6f8a",
+    color: "white",
+    fontWeight: 900,
+    border: "none",
     cursor: "pointer",
 };
 
-const rangeButtonActive: React.CSSProperties = {
-    background: "rgba(120, 190, 255, 0.20)",
-    border: "1px solid rgba(120, 190, 255, 0.45)",
+const secondaryBtn: React.CSSProperties = {
+    width: 240,
+    padding: "14px 14px",
+    borderRadius: 14,
+    background: "rgba(255,255,255,0.08)",
+    color: "rgba(255,255,255,0.92)",
+    fontWeight: 900,
+    border: "1px solid rgba(255,255,255,0.12)",
+    cursor: "pointer",
+};
+
+const muted: React.CSSProperties = {
+    fontSize: 13,
+    opacity: 0.75
 };
