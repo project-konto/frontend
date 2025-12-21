@@ -21,8 +21,9 @@ apiClient.interceptors.response.use(
         const status = error?.response?.status;
         const url = (error?.config?.url as string | undefined) ?? "";
 
-        if (status === 401 && typeof window !== "undefined") {
-            if (url.includes("/api/auth/"))
+        if (status === 401 && typeof window !== "undefined" && !url.includes("/api/auth/")) {
+            const token = authStorage.getToken();
+            if (!token)
                 return Promise.reject(error);
 
             authStorage.clearAll();

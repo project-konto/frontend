@@ -22,6 +22,58 @@ export default function BudgetPage() {
     const hasNoData = (details?.transactions?.length ?? 0) === 0;
     const effectiveBudgetId = activeBudgetId ?? budgets[0]?.id ?? null;
 
+    const [range, setRange] = useState<7 | 30>(7);
+
+    const currency = details?.currency ?? active?.currency ?? "RUB";
+
+    const expenseTotal = useMemo(() => {
+        if (!details) return 0;
+        return details.transactions
+            .filter(t => t.type === "Expense")
+            .reduce((s, t) => s + (t.amount ?? 0), 0);
+    }, [details]);
+
+    const incomeTotal = useMemo(() => {
+        if (!details) return 0;
+        return details.transactions
+            .filter(t => t.type === "Income")
+            .reduce((s, t) => s + (t.amount ?? 0), 0);
+    }, [details]);
+
+    type DayBar = { key: string; label: string; value: number };
+
+    const expenseBars = useMemo<DayBar[]>(() => {
+        if (!details) return [];
+
+        const now = new Date();
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - (range - 1));
+
+        // подготовим дни
+        const days: DayBar[] = [];
+        const map = new Map<string, number>();
+
+        for (let i = 0; i < range; i++) {
+            const d = new Date(start);
+            d.setDate(start.getDate() + i);
+            const key = d.toISOString().slice(0, 10); // YYYY-MM-DD
+            const label = d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+            days.push({ key, label, value: 0 });
+            map.set(key, 0);
+        }
+
+        // суммируем расходы по дням
+        for (const t of details.transactions) {
+            if (t.type !== "Expense") continue;
+            const key = t.date.slice(0, 10);
+            if (!map.has(key)) continue;
+            map.set(key, (map.get(key) ?? 0) + Math.abs(t.amount ?? 0));
+        }
+
+        return days.map(d => ({ ...d, value: map.get(d.key) ?? 0 }));
+    }, [details, range]);
+
     async function loadOverview() {
         setOverviewLoading(true);
         setOverviewErr(null);
@@ -67,10 +119,11 @@ export default function BudgetPage() {
     }, []);
 
     useEffect(() => {
-        if (budgets.length > 0 && !activeBudgetId) {
-            setActiveBudgetId(budgets[0].id);
+        if (activeBudgetId && typeof window !== "undefined") {
+            localStorage.setItem("konto_active_budget", activeBudgetId);
+            void loadDetails(activeBudgetId);
         }
-    }, [budgets, activeBudgetId]);
+    }, [activeBudgetId]);
 
 
     return (
@@ -115,16 +168,56 @@ export default function BudgetPage() {
                             </div>
                         </div>
                         {detailsLoading && <div style={muted}>Loading transactions...</div>}
-                        {!detailsLoading && hasNoData && (
-                            <div style={emptyWrap}>
-                                <div style={{ textAlign: "center" }}>
-                                    <div style={{ fontWeight: 900, fontSize: 16, opacity: 0.85 }}>
-                                        No Data to Create Statistics
+                        {!detailsLoading && !hasNoData && details && (
+                            <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                                    <div style={{ fontWeight: 900, opacity: 0.9 }}>Overview</div>
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        <button
+                                            style={{ ...rangeButton, ...(range === 7 ? rangeButtonActive : {}) }}
+                                            onClick={() => setRange(7)}
+                                        >
+                                            7d
+                                        </button>
+                                        <button
+                                            style={{ ...rangeButton, ...(range === 30 ? rangeButtonActive : {}) }}
+                                            onClick={() => setRange(30)}
+                                        >
+                                            30d
+                                        </button>
+                                    </div>
+                                </div>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                    <div style={statCard}>
+                                        <div style={statLabel}>Revenue</div>
+                                        <div style={statValue}>{incomeTotal.toFixed(2)} {currency}</div>
+                                    </div>
+                                    <div style={statCard}>
+                                        <div style={statLabel}>Expense</div>
+                                        <div style={statValue}>{expenseTotal.toFixed(2)} {currency}</div>
+                                    </div>
+                                </div>
+
+                                <div style={chartCard}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                                        <div style={{ fontWeight: 900, opacity: 0.9 }}>Expenses</div>
+                                        <div style={{ fontSize: 12, opacity: 0.7 }}>{range} days</div>
                                     </div>
 
-                                    <button style={importButton} onClick={() => setImportOpen(true)}>
-                                        Import Data
-                                    </button>
+                                    <div style={chartWrap}>
+                                        {expenseBars.map((b) => {
+                                            const max = Math.max(1, ...expenseBars.map(x => x.value));
+                                            const h = Math.round((b.value / max) * 100);
+                                            return (
+                                                <div key={b.key} style={barCol} title={`${b.label}: ${b.value.toFixed(2)} ${currency}`}>
+                                                    <div style={barTrack}>
+                                                        <div style={{ ...barFill, height: `${h}%` }} />
+                                                    </div>
+                                                    <div style={barLabel}>{b.label}</div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -152,14 +245,6 @@ const card: React.CSSProperties = {
     background: "rgba(255,255,255,0.06)",
 };
 
-const emptyWrap: React.CSSProperties = {
-    position: "absolute",
-    inset: 0,
-    display: "grid",
-    placeItems: "center",
-    padding: 16,
-};
-
 const chip: React.CSSProperties = {
     flex: "0 0 auto",
     textAlign: "left",
@@ -170,16 +255,79 @@ const chip: React.CSSProperties = {
     cursor: "pointer",
 };
 
-const importButton: React.CSSProperties = {
-    marginTop: 14,
-    width: 240,
-    padding: "14px 14px",
+const muted: React.CSSProperties = { fontSize: 13, opacity: 0.75 };
+
+const statCard: React.CSSProperties = {
+    padding: 12,
     borderRadius: 14,
-    background: "#163a4a",
-    color: "white",
-    fontWeight: 900,
-    border: "none",
-    cursor: "pointer"
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
 };
 
-const muted: React.CSSProperties = { fontSize: 13, opacity: 0.75 };
+const statLabel: React.CSSProperties = { fontSize: 12, opacity: 0.7 };
+const statValue: React.CSSProperties = { fontWeight: 900, fontSize: 18, marginTop: 6 };
+
+const chartCard: React.CSSProperties = {
+    padding: 12,
+    borderRadius: 14,
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    display: "grid",
+    gap: 10,
+};
+
+const chartWrap: React.CSSProperties = {
+    display: "grid",
+    gridAutoFlow: "column",
+    gridAutoColumns: "1fr",
+    gap: 8,
+    alignItems: "end",
+    height: 180,
+    marginTop: 6,
+};
+
+const barCol: React.CSSProperties = {
+    display: "grid",
+    gap: 6,
+    alignItems: "end",
+    minWidth: 0,
+};
+
+const barTrack: React.CSSProperties = {
+    height: 140,
+    borderRadius: 10,
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.10)",
+    overflow: "hidden",
+    display: "flex",
+    alignItems: "flex-end",
+};
+
+const barFill: React.CSSProperties = {
+    width: "100%",
+    background: "rgba(120, 190, 255, 0.55)",
+};
+
+const barLabel: React.CSSProperties = {
+    fontSize: 10,
+    opacity: 0.7,
+    textAlign: "center",
+    whiteSpace: "nowrap",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+};
+
+const rangeButton: React.CSSProperties = {
+    padding: "6px 10px",
+    borderRadius: 10,
+    border: "1px solid rgba(255,255,255,0.16)",
+    background: "rgba(255,255,255,0.06)",
+    color: "rgba(255,255,255,0.92)",
+    fontWeight: 800,
+    cursor: "pointer",
+};
+
+const rangeButtonActive: React.CSSProperties = {
+    background: "rgba(120, 190, 255, 0.20)",
+    border: "1px solid rgba(120, 190, 255, 0.45)",
+};
