@@ -66,9 +66,9 @@ export default function TransactionsPage() {
 
         return { from, to };
     });
-
     const [filterOpen, setFilterOpen] = useState(false);
-    const [selectedCats, setSelectedCats] = useState<string[]>([]);
+    const [selectedCats, setSelectedCats] = useState<string[] | null>(null);
+    const [editPressed, setEditPressed] = useState(false);
 
     useEffect(() => {
         const id = localStorage.getItem("konto_active_budget");
@@ -77,9 +77,15 @@ export default function TransactionsPage() {
         const storedCats = loadSelectedCategories();
         if (storedCats)
             setSelectedCats(storedCats);
+        else
+            setSelectedCats(null);
     }, []);
 
     useEffect(() => {
+        if (selectedCats === null) {
+            saveSelectedCategories([]);
+            return;
+        }
         saveSelectedCategories(selectedCats);
     }, [selectedCats]);
 
@@ -142,9 +148,8 @@ export default function TransactionsPage() {
     }, [filtered]);
 
     const effectiveSelected = useMemo(() => {
-        if (selectedCats.length === 0)
+        if (selectedCats === null)
             return categories;
-
         return selectedCats.filter((c) => categories.includes(c));
     }, [selectedCats, categories]);
 
@@ -205,7 +210,16 @@ export default function TransactionsPage() {
                 <div style={panel}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                         <div style={{ fontWeight: 900, opacity: 0.9 }}>Top categories (Expense)</div>
-                        <button style={linkBtn} onClick={() => setFilterOpen(true)}>Edit</button>
+                        <button
+                            style={{ ...editButton, ...(editPressed ? editButtonPressed : {}) }}
+                            onClick={() => {
+                                setEditPressed(true);
+                                setFilterOpen(true);
+                            }}
+                            onPointerDown={() => setEditPressed(true)}
+                            onPointerUp={() => setEditPressed(false)}
+                            onPointerCancel={() => setEditPressed(false)}
+                        >Edit</button>
                     </div>
                     <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
                         {categorySummary.slice(0, 8).map((c) => (
@@ -263,9 +277,17 @@ export default function TransactionsPage() {
             <CategoryFilterSheet
                 open={filterOpen}
                 categories={categories}
-                selected={effectiveSelected.length === 0 ? categories : effectiveSelected}
-                onChangeSelected={setSelectedCats}
-                onClose={() => setFilterOpen(false)}
+                selected={selectedCats === null ? categories : selectedCats} // ✅ UI: null => все, [] => ничего
+                onChangeSelected={(next) => {
+                    if (next.length === categories.length)
+                        setSelectedCats(null);
+                    else
+                        setSelectedCats(next);
+                }}
+                onClose={() => {
+                    setFilterOpen(false);
+                    setEditPressed(false);
+                }}
             />
         </div>
     );
@@ -363,4 +385,20 @@ const dotsButton: React.CSSProperties = {
     color: "rgba(255,255,255,0.92)",
     cursor: "pointer",
     fontWeight: 900,
+};
+
+const editButton: React.CSSProperties = {
+    padding: "6px 12px",
+    borderRadius: 12,
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "rgba(255,255,255,0.80)",
+    color: "rgba(10,18,28,0.92)",
+    cursor: "pointer",
+    fontWeight: 900,
+};
+
+const editButtonPressed: React.CSSProperties = {
+    background: "#2d6f8a",
+    border: "1px solid rgba(45,111,138,0.85)",
+    color: "rgba(255,255,255,0.98)",
 };

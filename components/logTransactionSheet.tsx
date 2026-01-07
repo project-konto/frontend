@@ -99,8 +99,12 @@ export default function LogTransactionSheet({ open, budgetId, type, onClose, onL
                     <label style={label}>Amount</label>
                     <input style={inp} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
                     <label style={label}>Category</label>
-                    <select style={inp as any} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                        {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    <select style={selectInp as any} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+                        {cats.map((c) => (
+                            <option key={c.id} value={c.id} style={selectOption as any}>
+                                {c.name}
+                            </option>
+                        ))}
                     </select>
                     <label style={label}>Date</label>
                     <input style={inp} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -183,4 +187,16 @@ const primaryBtn: React.CSSProperties = {
     fontWeight: 900,
     border: "none",
     cursor: "pointer",
+};
+
+const selectInp: React.CSSProperties = {
+    ...inp,
+    background: "rgba(255,255,255,0.92)",
+    border: "1px solid rgba(0,0,0,0.20)",
+    color: "rgba(10,18,28,0.92)",
+};
+
+const selectOption: React.CSSProperties = {
+    color: "rgba(10,18,28,0.95)",
+    background: "#ffffff",
 };

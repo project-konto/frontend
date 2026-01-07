@@ -160,7 +160,7 @@ export default function BudgetOverview(props: {
                 );
                 })}
             </div>
-            <button style={importBtn} onClick={onImport}>Import file</button>
+            <button style={importButton} onClick={onImport}>Import file</button>
         </div>
         </div>
     );
@@ -257,12 +257,12 @@ const barLabel: React.CSSProperties = {
     textOverflow: "ellipsis",
 };
 
-const importBtn: React.CSSProperties = {
+const importButton: React.CSSProperties = {
     marginTop: 2,
     padding: "10px 12px",
     borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(0,0,0,0.18)",
+    background: "rgba(255,255,255,0.85)",
     color: "rgba(10,18,28,0.92)",
     cursor: "pointer",
     fontWeight: 900,
