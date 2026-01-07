@@ -123,6 +123,7 @@ const overlay: React.CSSProperties = {
     placeItems: "center",
     padding: 14,
     zIndex: 60,
+    overflowY: "auto"
 };
 
 const sheet: React.CSSProperties = {
@@ -134,6 +135,9 @@ const sheet: React.CSSProperties = {
     padding: 12,
     display: "grid",
     gap: 10,
+    maxHeight: "calc(100dvh - 28px)",
+    overflowY: "auto",
+    color: "rgba(255,255,255,0.92)"
 };
 
 const header: React.CSSProperties = {

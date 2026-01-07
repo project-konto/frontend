@@ -188,7 +188,7 @@ export default function TransactionsPage() {
         <div style={{ height: "100%", padding: 16, display: "grid", gap: 12, alignContent: "start" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <div style={{ fontWeight: 900, fontSize: 20 }}>Transactions</div>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <button style={{ ...rangeBtn, ...(mode === "week" ? rangeBtnActive : {}) }} onClick={() => setMode("week")}>Week</button>
                     <button style={{ ...rangeBtn, ...(mode === "month" ? rangeBtnActive : {}) }} onClick={() => setMode("month")}>Month</button>
                     <button style={{ ...rangeBtn, ...(mode === "custom" ? rangeBtnActive : {}) }} onClick={() => setMode("custom")}>Range</button>
@@ -300,13 +300,16 @@ const linkBtn: React.CSSProperties = {
 };
 
 const rangeBtn: React.CSSProperties = {
-    padding: "7px 12px",
+    padding: "6px 10px",
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.12)",
     background: "rgba(255,255,255,0.05)",
     color: "rgba(255,255,255,0.92)",
     cursor: "pointer",
     fontWeight: 900,
+    fontSize: 13,
+    lineHeight: "16px",
+    whiteSpace: "nowrap",
 };
 
 const rangeBtnActive: React.CSSProperties = {
