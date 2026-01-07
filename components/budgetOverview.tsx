@@ -211,16 +211,19 @@ const chartCard: React.CSSProperties = {
     background: "rgba(255,255,255,0.06)",
     display: "grid",
     gap: 10,
+    overflowX: "auto",
+    paddingBottom: 10,
 };
 
 const barWrap: React.CSSProperties = {
     display: "grid",
     gridAutoFlow: "column",
-    gridAutoColumns: "1fr",
+    gridAutoColumns: "minmax(12px, 1fr)",
     gap: 8,
     alignItems: "end",
     height: 170,
     marginTop: 6,
+    minWidth: "max-content",
 };
 
 const barCol: React.CSSProperties = {
@@ -260,7 +263,7 @@ const importBtn: React.CSSProperties = {
     borderRadius: 12,
     border: "1px solid rgba(255,255,255,0.12)",
     background: "rgba(255,255,255,0.06)",
-    color: "rgba(255,255,255,0.92)",
+    color: "rgba(10,18,28,0.92)",
     cursor: "pointer",
     fontWeight: 900,
 };

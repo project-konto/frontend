@@ -302,9 +302,9 @@ const linkBtn: React.CSSProperties = {
 const rangeBtn: React.CSSProperties = {
     padding: "6px 10px",
     borderRadius: 12,
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.05)",
-    color: "rgba(255,255,255,0.92)",
+    border: "1px solid rgba(0,0,0,0.10)",
+    background: "rgba(255,255,255,0.70)",
+    color: "rgba(10,18,28,0.92)",
     cursor: "pointer",
     fontWeight: 900,
     fontSize: 13,

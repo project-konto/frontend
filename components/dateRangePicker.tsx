@@ -31,14 +31,15 @@ export default function DateRangePicker(props: {
 
 const label: React.CSSProperties = {
     fontSize: 12,
-    opacity: 0.7
+    opacity: 0.7,
+    color: "rgba(10,18,28,0.75)"
 };
 
 const inp: React.CSSProperties = {
     padding: "8px 10px",
     borderRadius: 10,
-    background: "rgba(255,255,255,0.08)",
-    border: "1px solid rgba(255,255,255,0.14)",
-    color: "rgba(255,255,255,0.92)",
+    background: "rgba(255,255,255,0.90)",
+    border: "1px solid rgba(0,0,0,0.14)",
+    color: "rgba(10,18,28,0.92)",
     outline: "none",
 };
